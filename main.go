@@ -5,11 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/crosleyzack/bubbles/utils"
-	"github.com/savannahostrowski/tree-bubble"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -56,17 +54,20 @@ func GetRunCmd() *cobra.Command {
 				log.Fatal("Error during Unmarshal(): ", err)
 			}
 			model := result.Treeify()
-			model.KeyMap = tree.KeyMap{
-				Down: key.NewBinding(
-					key.WithKeys("j", "down"),
-					key.WithHelp("↓", "down"),
-				),
-				Up: key.NewBinding(
-					key.WithKeys("k", "up"),
-					key.WithHelp("↑", "up"),
-				),
-			}
-			err = tea.NewProgram(utils.NewModel(model)).Start()
+			model.SetHeight(h)
+			model.SetWidth(w)
+			// model.KeyMap = tree.KeyMap{
+			// 	Down: key.NewBinding(
+			// 		key.WithKeys("j", "down"),
+			// 		key.WithHelp("↓", "down"),
+			// 	),
+			// 	Up: key.NewBinding(
+			// 		key.WithKeys("k", "up"),
+			// 		key.WithHelp("↑", "up"),
+			// 	),
+			// }
+			program := tea.NewProgram(utils.NewModel(model))
+			_, err = program.Run()
 			if err != nil {
 				log.Fatal("Error during program start: ", err)
 			}

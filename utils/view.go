@@ -1,9 +1,11 @@
 package utils
 
+// Taken from https://github.com/savannahostrowski/tree-bubble/blob/main/example/main.go
+
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	tree "github.com/savannahostrowski/tree-bubble"
+	"github.com/crosleyzack/bubbles/tree"
 )
 
 var (
@@ -12,6 +14,10 @@ var (
 
 // NewModel creates a new model with the given tree.
 func NewModel(tree tree.Model) model {
+	// set top level nodes to expanded
+	for _, node := range tree.Nodes() {
+		node.Expand = true
+	}
 	return model{tree: tree}
 }
 

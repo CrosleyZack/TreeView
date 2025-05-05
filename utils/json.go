@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	tree "github.com/savannahostrowski/tree-bubble"
+	"github.com/crosleyzack/bubbles/tree"
 )
 
 const (
@@ -53,9 +53,10 @@ func (d JsonBlob) Treeify() tree.Model {
 	for k, v := range d {
 		node := getTypedEntry(v).Treeify()
 		node.Value = k
+		node.Expand = true
 		nodes = append(nodes, node)
 	}
-	return tree.New(nodes, 100, 100)
+	return tree.New(nodes, 1, 1)
 }
 
 type TypedEntry struct {
@@ -126,6 +127,7 @@ func (e TypedEntry) String() string {
 func (e TypedEntry) Treeify() tree.Node {
 	node := tree.Node{
 		Desc:     e.String(),
+		Expand:   false,
 		Children: make([]tree.Node, 0),
 	}
 	switch e.Type {
