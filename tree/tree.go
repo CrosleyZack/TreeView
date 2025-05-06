@@ -52,6 +52,8 @@ type Model struct {
 	nodes  []Node
 	cursor int
 
+	currentNode Node
+
 	Help     help.Model
 	showHelp bool
 
@@ -115,7 +117,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("↑", "up"),
 		),
 		Collapse: key.NewBinding(
-			key.WithKeys("enter", "tab"),
+			key.WithKeys("[", "]"),
 			key.WithHelp("tab", "collapse"),
 		),
 
@@ -150,7 +152,8 @@ func (m *Model) NumberOfNodes() int {
 	countNodes = func(nodes []Node) {
 		for _, node := range nodes {
 			count++
-			if node.Children != nil {
+			if node.Children != nil && node.Expand {
+				// Recursively count the children, if expanded
 				countNodes(node.Children)
 			}
 		}
@@ -222,7 +225,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.NavUp()
 		case key.Matches(msg, m.KeyMap.Down):
 			m.NavDown()
-		// TODO collapse / uncollapse selected
+		case key.Matches(msg, m.KeyMap.Collapse):
+			m.currentNode.Expand = !m.currentNode.Expand
 		case key.Matches(msg, m.KeyMap.ShowFullHelp):
 			fallthrough
 		case key.Matches(msg, m.KeyMap.CloseFullHelp):
@@ -279,6 +283,7 @@ func (m *Model) renderTree(remainingNodes []Node, indent int, count *int) string
 
 		// If we are at the cursor, we add the selected style to the string
 		if m.cursor == idx {
+			m.currentNode = node
 			str += fmt.Sprintf("%s\t\t%s\n", m.Styles.Selected.Render(valueStr), m.Styles.Selected.Render(descStr))
 		} else {
 			str += fmt.Sprintf("%s\t\t%s\n", m.Styles.Unselected.Render(valueStr), m.Styles.Unselected.Render(descStr))
@@ -303,6 +308,7 @@ func (m Model) ShortHelp() []key.Binding {
 	kb := []key.Binding{
 		m.KeyMap.Up,
 		m.KeyMap.Down,
+		m.KeyMap.Collapse,
 	}
 
 	if m.AdditionalShortHelpKeys != nil {
@@ -318,6 +324,7 @@ func (m Model) FullHelp() [][]key.Binding {
 	kb := [][]key.Binding{{
 		m.KeyMap.Up,
 		m.KeyMap.Down,
+		m.KeyMap.Collapse,
 	}}
 
 	return append(kb,
