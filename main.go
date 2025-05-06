@@ -56,16 +56,6 @@ func GetRunCmd() *cobra.Command {
 			model := result.Treeify()
 			model.SetHeight(h)
 			model.SetWidth(w)
-			// model.KeyMap = tree.KeyMap{
-			// 	Down: key.NewBinding(
-			// 		key.WithKeys("j", "down"),
-			// 		key.WithHelp("↓", "down"),
-			// 	),
-			// 	Up: key.NewBinding(
-			// 		key.WithKeys("k", "up"),
-			// 		key.WithHelp("↑", "up"),
-			// 	),
-			// }
 			program := tea.NewProgram(utils.NewModel(model))
 			_, err = program.Run()
 			if err != nil {

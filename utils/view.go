@@ -13,7 +13,7 @@ var (
 )
 
 // NewModel creates a new model with the given tree.
-func NewModel(tree tree.Model) model {
+func NewModel(tree *tree.Model) model {
 	// set top level nodes to expanded
 	for _, node := range tree.Nodes() {
 		node.Expand = true
@@ -22,7 +22,7 @@ func NewModel(tree tree.Model) model {
 }
 
 type model struct {
-	tree tree.Model
+	tree *tree.Model
 }
 
 func (m model) Init() tea.Cmd {

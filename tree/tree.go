@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -37,9 +38,10 @@ func defaultStyles() Styles {
 }
 
 type Node struct {
-	Value    string
+	Value string
+	// Desc is used to store the shorthand for the collapsed values
 	Desc     string
-	Children []Node
+	Children []*Node
 	Expand   bool
 }
 
@@ -49,10 +51,10 @@ type Model struct {
 
 	width  int
 	height int
-	nodes  []Node
+	nodes  []*Node
 	cursor int
 
-	currentNode Node
+	currentNode *Node
 
 	Help     help.Model
 	showHelp bool
@@ -60,8 +62,8 @@ type Model struct {
 	AdditionalShortHelpKeys func() []key.Binding
 }
 
-func New(nodes []Node, width int, height int) Model {
-	return Model{
+func New(nodes []*Node, width int, height int) *Model {
+	return &Model{
 		KeyMap: DefaultKeyMap(),
 		Styles: defaultStyles(),
 
@@ -117,7 +119,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("↑", "up"),
 		),
 		Collapse: key.NewBinding(
-			key.WithKeys("[", "]"),
+			key.WithKeys("n"),
 			key.WithHelp("tab", "collapse"),
 		),
 
@@ -137,19 +139,19 @@ func DefaultKeyMap() KeyMap {
 	}
 }
 
-func (m Model) Nodes() []Node {
+func (m Model) Nodes() []*Node {
 	return m.nodes
 }
 
-func (m *Model) SetNodes(nodes []Node) {
+func (m *Model) SetNodes(nodes []*Node) {
 	m.nodes = nodes
 }
 
 func (m *Model) NumberOfNodes() int {
 	count := 0
 
-	var countNodes func([]Node)
-	countNodes = func(nodes []Node) {
+	var countNodes func([]*Node)
+	countNodes = func(nodes []*Node) {
 		for _, node := range nodes {
 			count++
 			if node.Children != nil && node.Expand {
@@ -217,7 +219,13 @@ func (m *Model) NavDown() {
 	}
 }
 
-func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+func (m *Model) InvertCollaped() {
+	if m.currentNode.Children != nil {
+		m.currentNode.Expand = !m.currentNode.Expand
+	}
+}
+
+func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -226,7 +234,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.KeyMap.Down):
 			m.NavDown()
 		case key.Matches(msg, m.KeyMap.Collapse):
-			m.currentNode.Expand = !m.currentNode.Expand
+			m.InvertCollaped()
 		case key.Matches(msg, m.KeyMap.ShowFullHelp):
 			fallthrough
 		case key.Matches(msg, m.KeyMap.CloseFullHelp):
@@ -237,7 +245,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) View() string {
+func (m *Model) View() string {
 	availableHeight := m.height
 	var sections []string
 
@@ -258,8 +266,24 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
-func (m *Model) renderTree(remainingNodes []Node, indent int, count *int) string {
+func (m *Model) getDisplayRange(maxRows int) (int, int) {
+	rowsAbove := m.height / 2
+	rowsBelow := m.height / 2
+	if m.cursor < rowsAbove {
+		rowsAbove = m.cursor
+		rowsBelow = m.height - m.cursor
+	}
+	if m.cursor+rowsBelow > maxRows {
+		rowsBelow = maxRows - m.cursor
+		rowsAbove = m.height - rowsBelow
+	}
+	return m.cursor - rowsAbove, m.cursor + rowsBelow
+}
+
+func (m *Model) renderTree(remainingNodes []*Node, indent int, count *int) string {
 	var b strings.Builder
+
+	minRow, maxRow := m.getDisplayRange(m.NumberOfNodes())
 
 	for _, node := range remainingNodes {
 
@@ -278,15 +302,17 @@ func (m *Model) renderTree(remainingNodes []Node, indent int, count *int) string
 		// Format the string with fixed width for the value and description fields
 		valueWidth := 10
 		descWidth := 20
-		valueStr := fmt.Sprintf("%-*s", valueWidth, node.Value)
-		descStr := fmt.Sprintf("%-*s", descWidth, node.Desc)
+		valueStr := strings.ReplaceAll(fmt.Sprintf("%-*s", valueWidth, node.Value), "\n", " ")
+		descStr := strings.ReplaceAll(fmt.Sprintf("%-*s", descWidth, node.Desc), "\n", " ")
 
 		// If we are at the cursor, we add the selected style to the string
 		if m.cursor == idx {
 			m.currentNode = node
 			str += fmt.Sprintf("%s\t\t%s\n", m.Styles.Selected.Render(valueStr), m.Styles.Selected.Render(descStr))
-		} else {
+		} else if idx >= minRow && idx <= maxRow {
 			str += fmt.Sprintf("%s\t\t%s\n", m.Styles.Unselected.Render(valueStr), m.Styles.Unselected.Render(descStr))
+		} else {
+			logrus.Debugf("Skipping node %d: %s", idx, node.Value)
 		}
 
 		b.WriteString(str)
@@ -300,11 +326,11 @@ func (m *Model) renderTree(remainingNodes []Node, indent int, count *int) string
 	return b.String()
 }
 
-func (m Model) helpView() string {
+func (m *Model) helpView() string {
 	return m.Styles.Help.Render(m.Help.View(m))
 }
 
-func (m Model) ShortHelp() []key.Binding {
+func (m *Model) ShortHelp() []key.Binding {
 	kb := []key.Binding{
 		m.KeyMap.Up,
 		m.KeyMap.Down,
@@ -320,7 +346,7 @@ func (m Model) ShortHelp() []key.Binding {
 	)
 }
 
-func (m Model) FullHelp() [][]key.Binding {
+func (m *Model) FullHelp() [][]key.Binding {
 	kb := [][]key.Binding{{
 		m.KeyMap.Up,
 		m.KeyMap.Down,

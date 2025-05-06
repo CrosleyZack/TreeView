@@ -48,8 +48,8 @@ func (d JsonBlob) String() string {
 	return ret.String()
 }
 
-func (d JsonBlob) Treeify() tree.Model {
-	nodes := make([]tree.Node, 0)
+func (d JsonBlob) Treeify() *tree.Model {
+	nodes := make([]*tree.Node, 0)
 	for k, v := range d {
 		node := getTypedEntry(v).Treeify()
 		node.Value = k
@@ -124,11 +124,11 @@ func (e TypedEntry) String() string {
 	return ret.String()
 }
 
-func (e TypedEntry) Treeify() tree.Node {
+func (e TypedEntry) Treeify() *tree.Node {
 	node := tree.Node{
 		Desc:     e.String(),
 		Expand:   false,
-		Children: make([]tree.Node, 0),
+		Children: make([]*tree.Node, 0),
 	}
 	switch e.Type {
 	case entryTypeArray:
@@ -144,7 +144,7 @@ func (e TypedEntry) Treeify() tree.Node {
 			node.Children = append(node.Children, child)
 		}
 	}
-	return node
+	return &node
 }
 
 // spacerToken returns a space if not the first element
